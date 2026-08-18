@@ -1,0 +1,143 @@
+spring:
+  application:
+    name: api-gateway
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  data:
+    redis:
+      # Only consulted when app.gateway.rate-limit.backend=redis. Left pointed at
+      # a sane local default so the property always resolves even on the memory
+      # backend, where Spring Data Redis autoconfigures a connection factory but
+      # this service never issues a command against it.
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 3000
+            response-timeout: 8s
+          globalcors:
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: ${ALLOWED_ORIGINS:http://localhost:5173}
+                allowedMethods: [ GET, OPTIONS ]
+                allowedHeaders: '*'
+                # Without this the browser cannot read the correlation ID off the
+                # response (frontend/src/shared/api/client.ts relies on it).
+                exposedHeaders: [ X-Correlation-ID ]
+                allowCredentials: false
+          routes:
+            - id: catalog-service
+              uri: ${CATALOG_URI:lb://catalog-service}
+              predicates:
+                - Path=/api/v1/events/**,/api/v1/categories
+                - Method=GET,OPTIONS
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: catalog
+                    fallbackUri: forward:/__fallback/catalog
+                    # Without this, CircuitBreaker only reacts to thrown
+                    # exceptions/timeouts and lets a plain 5xx response pass
+                    # through untouched — it would neither count toward opening
+                    # the breaker nor go through the fallback's problem+json body.
+                    #
+                    # These MUST be concrete statuses, not a series name. Unlike
+                    # Retry's `series` below (typed as HttpStatus.Series), this
+                    # argument is parsed with HttpStatus.valueOf, so `SERVER_ERROR`
+                    # throws `No enum constant HttpStatus.SERVER_ERROR` while the
+                    # routes are being built — which fails application startup.
+                    # 501 is deliberately absent: a Not Implemented is a contract
+                    # bug, not the transient fault a breaker should trip on.
+                    statusCodes:
+                      - INTERNAL_SERVER_ERROR
+                      - BAD_GATEWAY
+                      - SERVICE_UNAVAILABLE
+                      - GATEWAY_TIMEOUT
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    series: SERVER_ERROR
+                    backoff:
+                      firstBackoff: 200ms
+                      maxBackoff: 1s
+                      factor: 2
+            - id: catalog-service-api-docs
+              uri: ${CATALOG_URI:lb://catalog-service}
+              predicates:
+                - Path=/api-docs/catalog
+              filters:
+                - SetPath=/v3/api-docs
+
+log:
+  level:
+    root: INFO
+    app: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+        add-additional-paths: true
+      show-details: never
+      group:
+        liveness:
+          include:
+            - livenessState
+        readiness:
+          # Deliberately just readinessState: a Eureka outage must not flip the
+          # gateway to not-ready. CATALOG_URI is a documented static-URI escape
+          # hatch out of Eureka precisely so routing keeps working when the
+          # registry is unavailable, so readiness should not depend on it either.
+          include:
+            - readinessState
+  metrics:
+    tags:
+      application: api-gateway
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:false}
+  client:
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      # discovery-server authenticates every path except /actuator/health/**
+      # (see its SecurityConfig), so the registry URL must carry HTTP Basic
+      # credentials as userinfo — Eureka has no separate username/password
+      # property. Without them registration is rejected with 401, and the client
+      # only logs and retries, so the gateway would start and silently never
+      # appear in the registry.
+      #
+      # The defaults match discovery-server's local profile. Deployments override
+      # EUREKA_SERVICE_URL wholesale with a URL that embeds its own credentials.
+      defaultZone: ${EUREKA_SERVICE_URL:http://${EUREKA_USERNAME:user}:${EUREKA_PASSWORD:password}@localhost:8761/eureka/}
+
+app:
+  gateway:
+    rate-limit:
+      backend: ${RATE_LIMIT_BACKEND:memory}
+      replenish-rate: ${RATE_LIMIT_REPLENISH_RATE:20}
+      burst-capacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_UI_ENABLED:true}
+    urls:
+      - name: catalog-service
+        url: /api-docs/catalog

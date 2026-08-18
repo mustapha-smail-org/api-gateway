@@ -1,0 +1,25 @@
+name: Main
+on:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-main.yml@main
+    with:
+      service-name: api-gateway
+      java-version: '21'
+      sonar-project-key: mustapha-smail-org_api-gateway
+      sonar-project-name: 'CityPulse API Gateway'
+      sonar-organization: mustapha-smail-org
+      jacoco-threshold: '70'
+      automation-app-id: ${{ vars.AUTOMATION_APP_ID }}
+      # TODO: remove once api-gateway-cd exists. Without this, deploy-dev fails
+      skip-cd-dispatch: true
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+      automation-app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}

@@ -1,0 +1,20 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  release:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-release.yml@main
+    with:
+      service-name: api-gateway
+      automation-app-id: ${{ vars.AUTOMATION_APP_ID }}
+      # TODO: remove once api-gateway-cd exists.
+      skip-cd-dispatch: true
+    secrets:
+      automation-app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}

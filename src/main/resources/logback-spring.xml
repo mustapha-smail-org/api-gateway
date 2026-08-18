@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration>
+    <springProperty scope="context" name="levelCityPulse" source="log.level.app" defaultValue="INFO"/>
+    <springProperty scope="context" name="levelRoot" source="log.level.root" defaultValue="INFO"/>
+    <springProperty scope="context" name="activeProfile" source="spring.env.active" defaultValue="default"/>
+
+    <appender name="ConsoleApp" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                time=%yellow(%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'})|level=%highlight(%-5level)|thread=%thread|env=%boldYellow(${activeProfile})|source=%boldBlue(%c{0})|correlationId=%X{correlationId:-none}|message=%boldGreen(%msg)|exception=%red(%ex{3}%n)
+            </pattern>
+        </encoder>
+    </appender>
+    <appender name="ASYNC-VERSION-APPENDER-APP" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="ConsoleApp"/>
+    </appender>
+
+    <logger name="com.citypulse.gateway" level="${levelCityPulse}" additivity="false">
+        <appender-ref ref="ASYNC-VERSION-APPENDER-APP"/>
+    </logger>
+
+    <root level="${levelRoot}" additivity="false">
+        <appender-ref ref="ASYNC-VERSION-APPENDER-APP"/>
+    </root>
+</configuration>

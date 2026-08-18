@@ -1,0 +1,18 @@
+name: PR
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-pr.yml@main
+    with:
+      java-version: '21'
+      sonar-project-key: mustapha-smail-org_api-gateway
+      sonar-project-name: 'CityPulse API Gateway'
+      sonar-organization: mustapha-smail-org
+      jacoco-threshold: '70'
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}

@@ -1,0 +1,19 @@
+eureka:
+  client:
+    enabled: false
+
+app:
+  gateway:
+    rate-limit:
+      backend: memory
+      # Generous on purpose: these integration tests exercise many requests per
+      # class against one shared "global" bucket (the context, and therefore the
+      # rate limiter bean, is cached across test methods within a class). Rate
+      # limiting itself has its own focused unit test
+      # (InMemoryRateLimiterTest) against tight limits.
+      replenish-rate: 100000
+      burst-capacity: 100000
+
+springdoc:
+  swagger-ui:
+    enabled: false
