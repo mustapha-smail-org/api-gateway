@@ -9,7 +9,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-main.yml@main
+    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-main-java.yml@main
     with:
       service-name: api-gateway
       java-version: '21'

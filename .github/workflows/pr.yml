@@ -7,7 +7,7 @@ jobs:
   ci:
     permissions:
       contents: read
-    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-pr.yml@main
+    uses: mustapha-smail-org/deployment-workflows/.github/workflows/ci-pr-java.yml@main
     with:
       java-version: '21'
       sonar-project-key: mustapha-smail-org_api-gateway
