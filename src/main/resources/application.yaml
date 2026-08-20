@@ -35,7 +35,7 @@ spring:
                 allowCredentials: false
           routes:
             - id: catalog-service
-              uri: ${CATALOG_URI:lb://catalog-service}
+              uri: ${CATALOG_URI:http://localhost:8081}
               predicates:
                 - Path=/api/v1/events/**,/api/v1/categories
                 - Method=GET,OPTIONS
@@ -71,7 +71,7 @@ spring:
                       maxBackoff: 1s
                       factor: 2
             - id: catalog-service-api-docs
-              uri: ${CATALOG_URI:lb://catalog-service}
+              uri: ${CATALOG_URI:http://localhost:8081}
               predicates:
                 - Path=/api-docs/catalog
               filters:
@@ -100,33 +100,13 @@ management:
           include:
             - livenessState
         readiness:
-          # Deliberately just readinessState: a Eureka outage must not flip the
-          # gateway to not-ready. CATALOG_URI is a documented static-URI escape
-          # hatch out of Eureka precisely so routing keeps working when the
-          # registry is unavailable, so readiness should not depend on it either.
+          # Just readinessState: routing uses a static CATALOG_URI, so nothing
+          # external should flip the gateway to not-ready.
           include:
             - readinessState
   metrics:
     tags:
       application: api-gateway
-
-eureka:
-  instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
-    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:false}
-  client:
-    enabled: ${EUREKA_ENABLED:true}
-    service-url:
-      # discovery-server authenticates every path except /actuator/health/**
-      # (see its SecurityConfig), so the registry URL must carry HTTP Basic
-      # credentials as userinfo — Eureka has no separate username/password
-      # property. Without them registration is rejected with 401, and the client
-      # only logs and retries, so the gateway would start and silently never
-      # appear in the registry.
-      #
-      # The defaults match discovery-server's local profile. Deployments override
-      # EUREKA_SERVICE_URL wholesale with a URL that embeds its own credentials.
-      defaultZone: ${EUREKA_SERVICE_URL:http://${EUREKA_USERNAME:user}:${EUREKA_PASSWORD:password}@localhost:8761/eureka/}
 
 app:
   gateway:

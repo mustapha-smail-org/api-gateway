@@ -19,8 +19,9 @@ import org.springframework.web.server.ServerWebExchange;
 import com.citypulse.gateway.config.CorrelationIdGlobalFilter;
 import com.citypulse.gateway.exception.GatewayErrorCode;
 import com.citypulse.gateway.exception.GatewayProblemFactory;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
@@ -49,7 +50,7 @@ public class RateLimitingGlobalFilter implements GlobalFilter, Ordered {
     private final RateLimiter<?> gatewayRateLimiter;
     private final KeyResolver clientIpKeyResolver;
     private final GatewayProblemFactory problemFactory;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -91,8 +92,8 @@ public class RateLimitingGlobalFilter implements GlobalFilter, Ordered {
 
     private byte[] serialize(ProblemDetail body) {
         try {
-            return objectMapper.writeValueAsBytes(body);
-        } catch (JsonProcessingException e) {
+            return jsonMapper.writeValueAsBytes(body);
+        } catch (JacksonException e) {
             // Extremely unlikely (ProblemDetail is always plain-data), but must
             // never propagate an exception out of a filter that is itself handling
             // a deny path.
