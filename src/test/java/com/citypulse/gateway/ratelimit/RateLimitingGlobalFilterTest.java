@@ -16,6 +16,7 @@ import com.citypulse.gateway.config.CorrelationIdGlobalFilter;
 import com.citypulse.gateway.exception.GatewayProblemFactory;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.json.ProblemDetailJacksonMixin;
+import tools.jackson.core.exc.StreamWriteException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -77,6 +78,32 @@ class RateLimitingGlobalFilterTest {
         assertThat(body.get("title").asText()).isNotBlank();
         assertThat(body.get("detail").asText()).isNotBlank();
         assertThat(body.get("correlationId").asText()).isEqualTo("rate-limit-test-id");
+    }
+
+    @Test
+    void serializationFailureFallsBackToAStaticProblemBodyInsteadOfPropagating() {
+        // If the JsonMapper ever throws while serializing the deny body, the filter
+        // must still emit a valid 429 payload rather than let the exception escape a
+        // filter that is itself handling the deny path.
+        JsonMapper throwingMapper = new JsonMapper() {
+            @Override
+            public byte[] writeValueAsBytes(Object value) {
+                throw new StreamWriteException(null, "boom");
+            }
+        };
+        InMemoryRateLimiter exhaustedLimiter = new InMemoryRateLimiter(0, 0, null);
+        RateLimitingGlobalFilter filter = new RateLimitingGlobalFilter(
+                exhaustedLimiter, fixedKey("1.2.3.4"), problemFactory, throwingMapper);
+        MockServerWebExchange exchange = exchangeFor("/api/v1/events");
+
+        filter.filter(exchange, ex -> {
+            throw new AssertionError("chain must not run when the limiter denies the request");
+        }).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        org.springframework.mock.http.server.reactive.MockServerHttpResponse response =
+                (org.springframework.mock.http.server.reactive.MockServerHttpResponse) exchange.getResponse();
+        assertThat(response.getBodyAsString().block()).isEqualTo("{\"title\":\"Too many requests\"}");
     }
 
     private JsonNode readJsonBody(MockServerWebExchange exchange) {
