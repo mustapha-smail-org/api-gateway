@@ -7,8 +7,10 @@ import org.springframework.cloud.gateway.support.ConfigurationService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import com.citypulse.gateway.ratelimit.InMemoryRateLimiter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Selects the {@link RateLimiter} backend via an explicit property
@@ -53,5 +55,12 @@ public class RateLimiterConfiguration {
     @ConditionalOnProperty(prefix = "app.gateway.rate-limit", name = "backend", havingValue = "redis")
     RateLimiter<?> redisGatewayRateLimiter(RedisRateLimiter redisRateLimiter) {
         return redisRateLimiter;
+    }
+
+    // Boot 4 autoconfigures a Jackson 3 mapper; the rate-limit filter serializes
+    // with the classic Jackson 2 ObjectMapper, so declare that one explicitly.
+    @Bean
+    ObjectMapper objectMapper() {
+        return Jackson2ObjectMapperBuilder.json().build();
     }
 }
