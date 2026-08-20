@@ -14,9 +14,10 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 
 import com.citypulse.gateway.config.CorrelationIdGlobalFilter;
 import com.citypulse.gateway.exception.GatewayProblemFactory;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.json.ProblemDetailJacksonMixin;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import reactor.core.publisher.Mono;
 
@@ -25,11 +26,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RateLimitingGlobalFilterTest {
 
     // ProblemDetail only serializes its "code"/"timestamp"/"correlationId"
-    // extensions to top-level JSON keys via Spring's ProblemDetailJacksonMixin,
-    // which Jackson2ObjectMapperBuilder applies and a bare `new ObjectMapper()`
-    // does not. Production wiring gets this for free by injecting Boot's
-    // autoconfigured ObjectMapper bean; this test builds the same shape by hand.
-    private final ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().build();
+    // extensions to top-level JSON keys via Spring's ProblemDetailJacksonMixin.
+    // Production wiring gets this for free by injecting Boot's autoconfigured
+    // JsonMapper bean; this test applies the mixin by hand to match.
+    private final JsonMapper jsonMapper = JsonMapper.builder()
+            .addMixIn(ProblemDetail.class, ProblemDetailJacksonMixin.class)
+            .build();
     private final GatewayProblemFactory problemFactory =
             new GatewayProblemFactory(Clock.fixed(Instant.parse("2026-08-13T10:00:00Z"), ZoneOffset.UTC));
 
@@ -37,7 +39,7 @@ class RateLimitingGlobalFilterTest {
     void allowsTheRequestThroughWhenTheLimiterPermitsIt() {
         InMemoryRateLimiter permissiveLimiter = new InMemoryRateLimiter(10, 10, null);
         RateLimitingGlobalFilter filter = new RateLimitingGlobalFilter(
-                permissiveLimiter, fixedKey("1.2.3.4"), problemFactory, objectMapper);
+                permissiveLimiter, fixedKey("1.2.3.4"), problemFactory, jsonMapper);
         MockServerWebExchange exchange = exchangeFor("/api/v1/events");
 
         boolean[] chainInvoked = {false};
@@ -53,7 +55,7 @@ class RateLimitingGlobalFilterTest {
     void denialsAreShapedAs429ProblemJsonMatchingCatalogsErrorContract() {
         InMemoryRateLimiter exhaustedLimiter = new InMemoryRateLimiter(0, 0, null);
         RateLimitingGlobalFilter filter = new RateLimitingGlobalFilter(
-                exhaustedLimiter, fixedKey("1.2.3.4"), problemFactory, objectMapper);
+                exhaustedLimiter, fixedKey("1.2.3.4"), problemFactory, jsonMapper);
         MockServerWebExchange exchange = exchangeFor("/api/v1/events");
         exchange.getAttributes().put(CorrelationIdGlobalFilter.EXCHANGE_ATTRIBUTE, "rate-limit-test-id");
 
@@ -82,7 +84,7 @@ class RateLimitingGlobalFilterTest {
             org.springframework.mock.http.server.reactive.MockServerHttpResponse response =
                     (org.springframework.mock.http.server.reactive.MockServerHttpResponse) exchange.getResponse();
             String body = response.getBodyAsString().block();
-            return objectMapper.readTree(body);
+            return jsonMapper.readTree(body);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
