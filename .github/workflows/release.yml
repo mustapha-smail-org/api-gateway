@@ -14,7 +14,5 @@ jobs:
     with:
       service-name: api-gateway
       automation-app-id: ${{ vars.AUTOMATION_APP_ID }}
-      # TODO: remove once api-gateway-cd exists.
-      skip-cd-dispatch: true
     secrets:
       automation-app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
