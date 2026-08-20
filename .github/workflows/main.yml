@@ -17,9 +17,5 @@ jobs:
       sonar-project-name: 'CityPulse API Gateway'
       sonar-organization: mustapha-smail-org
       jacoco-threshold: '70'
-      automation-app-id: ${{ vars.AUTOMATION_APP_ID }}
-      # TODO: remove once api-gateway-cd exists. Without this, deploy-dev fails
-      skip-cd-dispatch: true
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
-      automation-app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
