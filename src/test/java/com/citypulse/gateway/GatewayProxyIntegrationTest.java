@@ -21,6 +21,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 
@@ -111,12 +113,50 @@ class GatewayProxyIntegrationTest {
     @Test
     void corsPreflightAllowsTheConfiguredOriginAndExposesTheCorrelationHeader() {
         webTestClient.options().uri("/api/v1/events")
-                .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                .header(HttpHeaders.ORIGIN, "http://localhost:3000")
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name())
                 .exchange()
                 .expectStatus().isOk()
-                .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+                .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000")
                 .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, CorrelationIdGlobalFilter.HEADER_NAME);
+    }
+
+    @Test
+    void proxiesFeedbackPostToCatalog() {
+        WIRE_MOCK.stubFor(post(urlPathEqualTo("/api/v1/feedback"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"id\":\"1\",\"status\":\"RECEIVED\"}")));
+
+        webTestClient.post().uri("/api/v1/feedback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"type\":\"suggestion\",\"message\":\"Bravo\"}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("RECEIVED");
+
+        WIRE_MOCK.verify(postRequestedFor(urlEqualTo("/api/v1/feedback")));
+    }
+
+    @Test
+    void proxiesEventReportPostToCatalog() {
+        WIRE_MOCK.stubFor(post(urlPathEqualTo("/api/v1/events/open-air-cinema-a1b2c3d4/reports"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"id\":\"2\",\"status\":\"RECEIVED\"}")));
+
+        webTestClient.post().uri("/api/v1/events/open-air-cinema-a1b2c3d4/reports")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"type\":\"date\",\"message\":\"Mauvaise date\"}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.id").isEqualTo("2");
+
+        WIRE_MOCK.verify(postRequestedFor(urlEqualTo("/api/v1/events/open-air-cinema-a1b2c3d4/reports")));
     }
 
     @Test
