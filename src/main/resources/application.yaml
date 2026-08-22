@@ -26,8 +26,8 @@ spring:
             add-to-simple-url-handler-mapping: true
             cors-configurations:
               '[/**]':
-                allowedOrigins: ${ALLOWED_ORIGINS:http://localhost:5173}
-                allowedMethods: [ GET, OPTIONS ]
+                allowedOrigins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+                allowedMethods: [ GET, POST, OPTIONS ]
                 allowedHeaders: '*'
                 # Without this the browser cannot read the correlation ID off the
                 # response (frontend/src/shared/api/client.ts relies on it).
@@ -37,9 +37,12 @@ spring:
             - id: catalog-service
               uri: ${CATALOG_URI:http://localhost:8081}
               predicates:
-                - Path=/api/v1/events/**,/api/v1/categories
-                - Method=GET,OPTIONS
+                - Path=/api/v1/events/**,/api/v1/categories,/api/v1/feedback
+                - Method=GET,POST,OPTIONS
               filters:
+                - name: RequestSize
+                  args:
+                    maxSize: 32KB
                 - name: CircuitBreaker
                   args:
                     name: catalog
