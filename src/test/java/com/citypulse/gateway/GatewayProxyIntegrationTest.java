@@ -160,6 +160,23 @@ class GatewayProxyIntegrationTest {
     }
 
     @Test
+    void proxiesAdminReportsListToCatalog() {
+        WIRE_MOCK.stubFor(get(urlPathEqualTo("/api/v1/reports"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"items\":[],\"nextCursor\":null,\"hasNext\":false}")));
+
+        webTestClient.get().uri("/api/v1/reports?page=0")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.hasNext").isEqualTo(false);
+
+        WIRE_MOCK.verify(getRequestedFor(urlPathEqualTo("/api/v1/reports")));
+    }
+
+    @Test
     void retriesOnAServerErrorAndReturnsTheEventualSuccess() {
         WIRE_MOCK.stubFor(get(urlPathEqualTo("/api/v1/categories"))
                 .inScenario("flaky-catalog")
