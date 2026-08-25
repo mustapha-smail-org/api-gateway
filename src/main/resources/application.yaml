@@ -37,7 +37,7 @@ spring:
             - id: catalog-service
               uri: ${CATALOG_URI:http://localhost:8081}
               predicates:
-                - Path=/api/v1/events/**,/api/v1/categories,/api/v1/feedback
+                - Path=/api/v1/events/**,/api/v1/categories,/api/v1/feedback,/api/v1/reports
                 - Method=GET,POST,OPTIONS
               filters:
                 - name: RequestSize
