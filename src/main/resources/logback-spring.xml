@@ -4,15 +4,26 @@
     <springProperty scope="context" name="levelRoot" source="log.level.root" defaultValue="INFO"/>
     <springProperty scope="context" name="activeProfile" source="spring.env.active" defaultValue="default"/>
 
-    <appender name="ConsoleApp" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>
-                time=%yellow(%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'})|level=%highlight(%-5level)|thread=%thread|env=%boldYellow(${activeProfile})|source=%boldBlue(%c{0})|correlationId=%X{correlationId:-none}|message=%boldGreen(%msg)|exception=%red(%ex{3}%n)
-            </pattern>
-        </encoder>
-    </appender>
+    <springProfile name="local | dev">
+        <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>
+                    time=%yellow(%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'})|level=%highlight(%-5level)|thread=%thread|env=%boldYellow(${activeProfile})|source=%boldBlue(%c{0})|correlationId=%X{correlationId:-none}|message=%boldGreen(%msg)|exception=%red(%ex{3}%n)
+                </pattern>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <springProfile name="!local &amp; !dev">
+        <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+                <format>logstash</format>
+            </encoder>
+        </appender>
+    </springProfile>
+
     <appender name="ASYNC-VERSION-APPENDER-APP" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="ConsoleApp"/>
+        <appender-ref ref="Console"/>
     </appender>
 
     <logger name="com.citypulse.gateway" level="${levelCityPulse}" additivity="false">
